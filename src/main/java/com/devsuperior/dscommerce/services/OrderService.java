@@ -2,12 +2,14 @@ package com.devsuperior.dscommerce.services;
 
 import java.time.Instant;
 
+import com.devsuperior.dscommerce.dto.OrderItemDTO;
+import com.devsuperior.dscommerce.entities.*;
+import com.devsuperior.dscommerce.repositories.OrderItemRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.devsuperior.dscommerce.dto.OrderDTO;
-import com.devsuperior.dscommerce.entities.Order;
 import com.devsuperior.dscommerce.repositories.OrderRepository;
 import com.devsuperior.dscommerce.repositories.ProductRepository;
 import com.devsuperior.dscommerce.services.exceptions.ResourceNotFoundException;
@@ -24,6 +26,8 @@ public class OrderService {
     @Autowired
     private UserService userService;
 
+    @Autowired
+    OrderItemRepository orderItemRepository;
 
     @Transactional(readOnly = true)
     public OrderDTO findById(Long id) {
@@ -32,4 +36,24 @@ public class OrderService {
         return new OrderDTO(order);
     }
 
+    public OrderDTO insert(OrderDTO dto) {
+        Order order = new Order();
+
+        order.setMoment(Instant.now());
+        order.setStatus(OrderStatus.WAITING_PAYMENT);
+
+        User user = userService.authenticated();
+        order.setClient(user);
+
+        for(OrderItemDTO itemDTO : dto.getItems()){
+            Product product = productRepository.getReferenceById(itemDTO.getProductId());
+            OrderItem item = new OrderItem(order, product, itemDTO.getQuantity(), product.getPrice());
+            order.getItems().add(item);
+        }
+
+        repository.save(order);
+        orderItemRepository.saveAll(order.getItems());
+
+        return new OrderDTO(order);
+    }
 }
